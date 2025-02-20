@@ -1,0 +1,67 @@
+services:
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: dragonfly
+    ulimits:
+      memlock: -1
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonfly-data:/data 
+    environment:
+      - TZ=UTC
+
+  minio1:
+    image: quay.io/minio/minio:latest
+    
+    container_name: minio1
+    ports:
+      - "9001:9000"
+      - '9090:9001'
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+    volumes:
+      - minio1-data:/data
+    command: server --console-address ":9001" /data
+  minio2:
+    image: quay.io/minio/minio:latest
+    container_name: minio2
+    ports:
+      - "9002:9000"
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+    volumes:
+      - minio2-data:/data
+    command: server /data
+
+  minio3:
+    image: quay.io/minio/minio:latest
+    container_name: minio3
+    ports:
+      - "9003:9000"
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+    volumes:
+      - minio3-data:/data
+    command: server /data
+
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "password"
+      MYSQL_DATABASE: "test"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  minio1-data:
+  minio2-data:
+  minio3-data:
+  mysql-data:
+  dragonfly-data:

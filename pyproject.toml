@@ -1,0 +1,17 @@
+[project]
+name = "backend-core"
+version = "0.1.0"
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"] 
+ignore = ["E501"] 
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

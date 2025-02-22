@@ -7,7 +7,6 @@ import uvicorn
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Header, Depends
-from pydantic import BaseModel
 from hashlib import sha256
 from dotenv import load_dotenv
 
@@ -16,6 +15,40 @@ from typing import Any, Type, AsyncGenerator
 from lib import User, MySQLClient, S3Pool, RedisClient, EmbeddingStatusResponse, RemoveKeyRequest
 
 FILE_VERSION = "0.1.0"
+
+__endpoints__ : dict[str, Any] = {
+    "/upload/": {
+        "method": "POST",
+        "description": "Upload a file to the server and start the embedding process.",
+        "parameters": {
+            "file": {
+                "type": "file",
+                "required": True,
+                "description": "The file to be uploaded for processing."
+            }
+        },
+        "response": {
+            "message": "File uploaded successfully",
+            "embedding_id": "The unique ID of the embedding process."
+        }
+    },
+    "/embedding-status/{embedding_id}": {
+        "method": "GET",
+        "description": "Check the status of an embedding process.",
+        "parameters": {
+            "embedding_id": {
+                "type": "string",
+                "required": True,
+                "description": "The unique ID of the embedding process."
+            }
+        },
+        "response": {
+            "embedding_id": "The unique ID of the embedding process.",
+            "status": "The current status of the embedding process."
+        }
+    },
+}
+
 
 # Load environment variables
 load_dotenv()
@@ -67,8 +100,11 @@ async def get_current_user(token: str = Header(...)) -> User:
     return user
 
 # Simulated embedding process that writes to MySQL.
-def process_embedding(file_hash: str, embedding_id: str, file: UploadFile = None) -> None:
-    conn = mysql_client.connection
+async def process_embedding(file_hash: str, embedding_id: str, file: UploadFile) -> None:
+    await mysql_client.execute_query(
+        "INSERT INTO embeddings (embedding_id, file_hash, embedding_data) VALUES (%s, %s, %s)",
+        (embedding_id, file_hash, "Some embedding data")
+    )
     file_cache_client.set_value(f"embedding_status:{embedding_id}", "Processing", expire_time=3600)
     time.sleep(5)
     file_cache_client.set_value(f"embedding_status:{embedding_id}", "Completed", expire_time=3600)
@@ -104,10 +140,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         general_cache_client.close_connection()
         file_cache_client.close_connection()
-        mysql_client.close()
+        await mysql_client.close()
         raise RuntimeError(f"Failed to connect to S3 servers: {str(e)}")
     
-    FILE_DRIFT = os.getenv("FILE_DRIFT")
+    FILE_DRIFT = str(os.getenv("FILE_DRIFT"))
     if not FILE_DRIFT.isdigit() or int(FILE_DRIFT) < 0:
         raise ValueError("FILE_DRIFT must be a positive integer")
     if FILE_DRIFT != "0":
@@ -128,13 +164,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
     general_cache_client.close_connection()
     file_cache_client.close_connection()
-    mysql_client.close()
+    await mysql_client.close()
     print("Connections closed.")
 
 app = FastAPI(lifespan=lifespan, title="RagStack", description=f"Backend Version: {FILE_VERSION}", version=FILE_VERSION, root_path="/src",) 
 
 # File validation dependency.
-async def file_validation(file: UploadFile = File(None)):
+async def file_validation(file: UploadFile = File(None)) -> UploadFile:
     if file is None or file.filename == "":
         raise HTTPException(status_code=400, detail="No file provided")
     return file
@@ -144,11 +180,7 @@ async def file_validation(file: UploadFile = File(None)):
 # --------------------------
 
 @app.post("/upload/")
-async def upload_file(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
-):
+async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...), current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     
     # when a dupe file is uploaded, it sill generates a new embedding id, but the file is not reuploaded to s3, we could most likely cache the embbdings as well so we dont have to recompute them
 
@@ -167,7 +199,7 @@ async def upload_file(
             file_cache_client.set_value(file_hash, metadata)
         else:
             # Upload file using S3Pool.
-            upload_success = await s3_pool.upload_file(os.getenv("BUCKET_NAME"), file_hash, file_content)
+            upload_success = await s3_pool.upload_file(str(os.getenv("BUCKET_NAME")), file_hash, file_content)
             print(f"File uploaded to S3: {upload_success}")
             if not upload_success:
                 raise HTTPException(status_code=500, detail="Failed to upload file to S3")
@@ -188,7 +220,7 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
 
 @app.get("/embedding-status/{embedding_id}", response_model=EmbeddingStatusResponse)
-async def get_embedding_status(embedding_id: str):
+async def get_embedding_status(embedding_id: str) -> EmbeddingStatusResponse:
     try:
         status = general_cache_client.get_value(f"embedding_status:{embedding_id}")
         if not status:
@@ -198,17 +230,17 @@ async def get_embedding_status(embedding_id: str):
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 @app.post("/apikeys/new")
-async def create_api_key(current_user: User = Depends(get_current_user)):
+async def create_api_key(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     new_key = await current_user.create_api_key()
     return {"message": "API key created", "api_key": new_key}
 
 @app.get("/apikeys")
-async def list_api_keys(current_user: User = Depends(get_current_user)):
+async def list_api_keys(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     keys = await current_user.get_user_api_keys()
     return {"api_keys": keys}
 
 @app.post("/apikeys/remove")
-async def remove_api_key(request_data: RemoveKeyRequest, current_user: User = Depends(get_current_user)):
+async def remove_api_key(request_data: RemoveKeyRequest, current_user: User = Depends(get_current_user))-> dict[str, Any]:
     if request_data.api_key not in current_user.api_keys:
         raise HTTPException(status_code=404, detail="API key not found")
     new_keys = [key for key in current_user.api_keys if key != request_data.api_key]
@@ -216,8 +248,8 @@ async def remove_api_key(request_data: RemoveKeyRequest, current_user: User = De
     current_user.api_keys = new_keys
     return {"message": "API key removed", "api_keys": new_keys}
 
-@app.post("/logout") #this is btroken rn so sad :(
-async def logout(current_user: User = Depends(get_current_user)):
+@app.post("/logout") #this is btroken rn, i need to look more into revoking tokens as it does not seem to be that auth0 gives new tokens after each login if the token is still active
+async def logout(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     print("Logging out user...")
     #await current_user.revoke_token()
     return {"message": "Token not revoked"}

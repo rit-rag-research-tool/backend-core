@@ -86,6 +86,7 @@ class MySQLClient:
                 print(f"MySQL connection error: {str(e)}")
                 self.pool = None
 
+
     def is_connected(self) -> bool:
         """
         The function `is_connected` returns a boolean value indicating whether the pool is not None.
@@ -158,7 +159,7 @@ class MySQLClient:
             print(f"MySQL query error: {str(e)}")
             return []
 
-    async def execute_commit(self,query: str, params: Optional[Tuple[Any, ...]] = None) -> bool:
+    async def execute_commit(self, query: str, params: Optional[Tuple[Any, ...]] = None) -> bool:
         """
         This function executes a SQL query with optional parameters and commits the transaction in an
         asynchronous manner using aiomysql in Python.

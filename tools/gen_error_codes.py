@@ -43,4 +43,4 @@ def get_function_name(lines: list[str], idx: int) -> str:
     return "global"
 
 if __name__ == "__main__":
-    preprocess_errors("./your_project") 
+    preprocess_errors("./src") 

@@ -95,7 +95,9 @@ class S3Pool:
                 self.s3_clients[server].list_objects,
                 self.bucket
             )
-            return float(len(objects)) if objects else float("inf")
+            if objects is None:
+                return float("inf")
+            return float(len(objects))
         except Exception as e:
             print(f"Error getting file count from {server}: {e}")
             return float("inf")

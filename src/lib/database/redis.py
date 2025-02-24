@@ -236,7 +236,7 @@ class RedisClient:
         
         """
         try:
-            self.client.close()
+            self.client.close() #type: ignore
         except Exception as e:
             print(f"Error closing Redis connection: {str(e)}")
 

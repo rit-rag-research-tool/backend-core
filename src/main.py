@@ -1,54 +1,17 @@
 import os
-import json
-import time
-import uuid
 import asyncio
 import uvicorn
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Header, Depends
-from hashlib import sha256
+from fastapi import FastAPI
 from dotenv import load_dotenv
 
 from typing import Any, Type, AsyncGenerator
 
-from lib import User, MySQLClient, S3Pool, RedisClient, EmbeddingStatusResponse, RemoveKeyRequest
+from lib import MySQLClient, S3Pool, RedisClient
+from routes import router as base_router
 
 FILE_VERSION = "0.1.0"
-
-__endpoints__ : dict[str, Any] = {
-    "/upload/": {
-        "method": "POST",
-        "description": "Upload a file to the server and start the embedding process.",
-        "parameters": {
-            "file": {
-                "type": "file",
-                "required": True,
-                "description": "The file to be uploaded for processing."
-            }
-        },
-        "response": {
-            "message": "File uploaded successfully",
-            "embedding_id": "The unique ID of the embedding process."
-        }
-    },
-    "/embedding-status/{embedding_id}": {
-        "method": "GET",
-        "description": "Check the status of an embedding process.",
-        "parameters": {
-            "embedding_id": {
-                "type": "string",
-                "required": True,
-                "description": "The unique ID of the embedding process."
-            }
-        },
-        "response": {
-            "embedding_id": "The unique ID of the embedding process.",
-            "status": "The current status of the embedding process."
-        }
-    },
-}
-
 
 # Load environment variables
 load_dotenv()
@@ -90,25 +53,6 @@ s3_pool = S3Pool(
 )
 
 
-# Dependency to get the authenticated user from the token header.
-async def get_current_user(token: str = Header(...)) -> User:
-    token = token.replace("Bearer ", "").strip() # Remove "Bearer" prefix, it will also check in the auth class so its not necessary to do so...
-    user = User(token, dict(os.environ), general_cache_client.client)
-    if not await user.verify_session():
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    await user.load_user_data()
-    return user
-
-# Simulated embedding process that writes to MySQL.
-async def process_embedding(file_hash: str, embedding_id: str, file: UploadFile) -> None:
-    await mysql_client.execute_query(
-        "INSERT INTO embeddings (embedding_id, file_hash, embedding_data) VALUES (%s, %s, %s)",
-        (embedding_id, file_hash, "Some embedding data")
-    )
-    file_cache_client.set_value(f"embedding_status:{embedding_id}", "Processing", expire_time=3600)
-    time.sleep(5)
-    file_cache_client.set_value(f"embedding_status:{embedding_id}", "Completed", expire_time=3600)
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
@@ -117,7 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print("general_cache_client connection established.")
     except Exception as e:
         raise RuntimeError(f"Failed to connect to KeyDB: {str(e)}")
-    
+
     try:
         if not file_cache_client.client.ping():
             raise ConnectionError("Redis is not reachable.")
@@ -125,12 +69,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         general_cache_client.close_connection()
         raise RuntimeError(f"Failed to connect to Redis: {str(e)}")
-    
+
+    await mysql_client.connect()
     if not mysql_client.is_connected():
         raise RuntimeError("MySQL is not reachable.")
     else:
         print("MySQL connection established.")
-    
+
     try:
         results = await asyncio.gather(*(s3_pool.get_file_count(server) for server in s3_pool.s3_servers))
         print(results)
@@ -142,15 +87,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         file_cache_client.close_connection()
         await mysql_client.close()
         raise RuntimeError(f"Failed to connect to S3 servers: {str(e)}")
-    
-    FILE_DRIFT = str(os.getenv("FILE_DRIFT"))
-    if not FILE_DRIFT.isdigit() or int(FILE_DRIFT) < 0:
-        raise ValueError("FILE_DRIFT must be a positive integer")
-    if FILE_DRIFT != "0":
-        print("File drift monitoring is enabled.")
-    else:
-        print("FILE_DRIFT is set to 0. File drift monitoring is disabled.")
-    
+
+    app.state.mysql_client = mysql_client
+    app.state.general_cache_client = general_cache_client
+    app.state.file_cache_client = file_cache_client
+    app.state.s3_pool = s3_pool
+    app.state.env = dict(os.environ)
+
     print("-" * 20)
     print("Routes:")
     print("  /upload/")
@@ -160,99 +103,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print("  /apikeys/remove")
     print("  /logout")
     print("-" * 20)
-    
+
     yield
+
+    # Shutdown: Close the connections
     general_cache_client.close_connection()
     file_cache_client.close_connection()
     await mysql_client.close()
     print("Connections closed.")
 
-app = FastAPI(lifespan=lifespan, title="RagStack", description=f"Backend Version: {FILE_VERSION}", version=FILE_VERSION, root_path="/src",) 
 
-# File validation dependency.
-async def file_validation(file: UploadFile = File(None)) -> UploadFile:
-    if file is None or file.filename == "":
-        raise HTTPException(status_code=400, detail="No file provided")
-    return file
+app = FastAPI(lifespan=lifespan, title="RagStack", description=f"Backend Version: {FILE_VERSION}", version=FILE_VERSION, root_path="/src",)
+app.include_router(base_router)
 
-# --------------------------
-# Routes
-# --------------------------
 
-@app.post("/upload/")
-async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...), current_user: User = Depends(get_current_user)) -> dict[str, Any]:
-    
-    # when a dupe file is uploaded, it sill generates a new embedding id, but the file is not reuploaded to s3, we could most likely cache the embbdings as well so we dont have to recompute them
-
-    try:
-        file = await file_validation(file)
-        file_content = await file.read()
-        file_hash = sha256(file_content).hexdigest()
-        
-        # Check for existing file metadata.
-        existing_file_metadata = file_cache_client.get_value(file_hash)
-        if existing_file_metadata:
-            # If stored as a JSON string, convert to a dict.
-            metadata = existing_file_metadata if isinstance(existing_file_metadata, dict) else json.loads(existing_file_metadata)
-            if current_user.user_id not in metadata.get("users", []):
-                metadata["users"].append(current_user.user_id)
-            file_cache_client.set_value(file_hash, metadata)
-        else:
-            # Upload file using S3Pool.
-            upload_success = await s3_pool.upload_file(str(os.getenv("BUCKET_NAME")), file_hash, file_content)
-            print(f"File uploaded to S3: {upload_success}")
-            if not upload_success:
-                raise HTTPException(status_code=500, detail="Failed to upload file to S3")
-            metadata = {
-                "uploaded": datetime.utcnow().isoformat(),
-                "server": upload_success,
-                "users": [current_user.user_id]
-            }
-            file_cache_client.set_value(file_hash, metadata)
-        
-        # Create an embedding job.
-        embedding_id = str(uuid.uuid4())
-        general_cache_client.set_value(f"embedding_status:{embedding_id}", "Pending", expire_time=3600)
-        background_tasks.add_task(process_embedding, file_hash, embedding_id, file)
-        return {"message": "File uploaded successfully", "embedding_id": embedding_id}
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
-
-@app.get("/embedding-status/{embedding_id}", response_model=EmbeddingStatusResponse)
-async def get_embedding_status(embedding_id: str) -> EmbeddingStatusResponse:
-    try:
-        status = general_cache_client.get_value(f"embedding_status:{embedding_id}")
-        if not status:
-            raise HTTPException(status_code=404, detail=f"Embedding job with ID '{embedding_id}' not found")
-        return EmbeddingStatusResponse(embedding_id=embedding_id, status=status)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-@app.post("/apikeys/new")
-async def create_api_key(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
-    new_key = await current_user.create_api_key()
-    return {"message": "API key created", "api_key": new_key}
-
-@app.get("/apikeys")
-async def list_api_keys(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
-    keys = await current_user.get_user_api_keys()
-    return {"api_keys": keys}
-
-@app.post("/apikeys/remove")
-async def remove_api_key(request_data: RemoveKeyRequest, current_user: User = Depends(get_current_user))-> dict[str, Any]:
-    if request_data.api_key not in current_user.api_keys:
-        raise HTTPException(status_code=404, detail="API key not found")
-    new_keys = [key for key in current_user.api_keys if key != request_data.api_key]
-    await current_user.update_user_api_keys(new_keys)
-    current_user.api_keys = new_keys
-    return {"message": "API key removed", "api_keys": new_keys}
-
-@app.post("/logout") #this is btroken rn, i need to look more into revoking tokens as it does not seem to be that auth0 gives new tokens after each login if the token is still active
-async def logout(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
-    print("Logging out user...")
-    #await current_user.revoke_token()
-    return {"message": "Token not revoked"}
 
 # Uncomment for local development:
 # if __name__ == "__main__":

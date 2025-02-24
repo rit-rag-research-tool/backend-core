@@ -5,7 +5,6 @@ import mysql.connector
 from minio import Minio
 from dotenv import load_dotenv
 import time
-import boto3
 from typing import Dict, Any, List
 
 def load_docker_compose_config() -> Dict[Any, Any]:

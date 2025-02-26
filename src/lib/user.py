@@ -1,11 +1,12 @@
-import json
-import time
 import uuid
-from fastapi import HTTPException
+from typing import Dict, List
+
 import httpx
-from typing import List, Dict
-from .auth import Auth  # Base authentication class
 import redis
+from fastapi import HTTPException
+
+from .auth import Auth  # Base authentication class
+
 
 # This Python class represents a user with methods to manage API keys and load user data from Auth0.
 class User(Auth):

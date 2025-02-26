@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 # Data Models
 class EmbeddingStatusResponse(BaseModel):
     embedding_id: str

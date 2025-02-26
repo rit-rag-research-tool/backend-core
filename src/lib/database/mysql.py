@@ -1,6 +1,6 @@
-import aiomysql
-from typing import List, Tuple, Optional, Any, Dict
+from typing import Any, Dict, List, Optional, Tuple
 
+import aiomysql
 
 
 class MySQLClient:

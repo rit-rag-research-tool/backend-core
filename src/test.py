@@ -1,5 +1,5 @@
-from google.generativeai import GenerativeModel, configure # type: ignore
-import os
+
+from google.generativeai import GenerativeModel, configure  # type: ignore
 
 configure(api_key="AIzaSyCtJYKNLMkn8DpsvWDyR3UQX_jCzHxiAnY")
 

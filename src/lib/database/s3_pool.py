@@ -1,8 +1,11 @@
 import asyncio
 import json
 from typing import List, Tuple
+
 import redis
+
 from .s3 import S3Client
+
 
 class S3Pool:
     def __init__( self,s3_servers: List[str], access_key: str, secret_key: str, bucket: str, redis_client: redis.StrictRedis) -> None:

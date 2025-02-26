@@ -1,18 +1,32 @@
-import os
+import asyncio
 import json
+import os
 import time
 import uuid
-import asyncio
-import uvicorn
-from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Header, Depends
+from datetime import datetime
 from hashlib import sha256
+from typing import Any, AsyncGenerator, Type
+
 from dotenv import load_dotenv
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    UploadFile,
+)
 
-from typing import Any, Type, AsyncGenerator
-
-from lib import User, MySQLClient, S3Pool, RedisClient, EmbeddingStatusResponse, RemoveKeyRequest
+from lib import (
+    EmbeddingStatusResponse,
+    MySQLClient,
+    RedisClient,
+    RemoveKeyRequest,
+    S3Pool,
+    User,
+)
 
 FILE_VERSION = "0.1.0"
 

@@ -1,7 +1,8 @@
-import redis
 import json
-
 from typing import Any, Optional
+
+import redis
+
 
 # The `RedisClient` class provides methods for interacting with a Redis database, including setting
 # and getting values, deleting keys, checking key existence, incrementing keys, and closing the

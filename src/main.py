@@ -1,14 +1,12 @@
-import os
 import asyncio
-import uvicorn
-from datetime import datetime, timezone
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from typing import Any, AsyncGenerator, Type
+
 from dotenv import load_dotenv
+from fastapi import FastAPI
 
-from typing import Any, Type, AsyncGenerator
-
-from lib import MySQLClient, S3Pool, RedisClient
+from lib import MySQLClient, RedisClient, S3Pool
 from routes import router as base_router
 
 FILE_VERSION = "0.1.0"

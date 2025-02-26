@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+import argparse
 import ast
+import json
 import os
 import re
-import json
-import argparse
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -280,7 +280,7 @@ def update_endpoints_in_path(silent: bool, verose: bool, no_output: bool, route_
         overall = {"files": aggregated_files, "inits": aggregated_inits}
         with open("endpoints.json", "w") as f:
             json.dump(overall, f, indent=4)
-        verbose_print(f"Aggregated endpoints dumped to endpoints.json")
+        verbose_print("Aggregated endpoints dumped to endpoints.json")
     
 
 

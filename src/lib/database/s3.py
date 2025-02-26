@@ -1,8 +1,10 @@
 import io
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
+
 from minio import Minio
-from minio.error import S3Error
 from minio.datatypes import Bucket
+from minio.error import S3Error
+
 
 class S3Client:
     def __init__(self, server_url: str, access_key: str, secret_key: str, verify_ssl: bool = False) -> None:

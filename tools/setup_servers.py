@@ -1,11 +1,12 @@
-import time
 import subprocess
-import yaml
-import mysql.connector
-from minio import Minio
-from dotenv import load_dotenv
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import mysql.connector
+import yaml
+from dotenv import load_dotenv
+from minio import Minio
+
 
 def load_docker_compose_config() -> Dict[Any, Any]:
     with open("docker-compose.yml", "r") as file:

@@ -1,11 +1,11 @@
 import time
+from hashlib import sha256
+from typing import Any, Dict, Optional
+
 import httpx
 import redis
-from jose import jwt
-from hashlib import sha256
-from typing import Tuple, Dict, Optional, Any
 from fastapi import HTTPException
-
+from jose import jwt
 
 
 # The `Auth` class in Python handles authentication using environment variables, Redis client, token

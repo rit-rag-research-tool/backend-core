@@ -1,6 +1,9 @@
 import os
+
 from fastapi import UploadFile
+
 from lib import FILE_TYPE_MAP
+
 
 def file_validation(file: UploadFile) -> UploadFile:
     _, ext = os.path.splitext(str(file.filename))

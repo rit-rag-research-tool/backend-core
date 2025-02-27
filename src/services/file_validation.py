@@ -13,4 +13,6 @@ def file_validation(file: UploadFile) -> UploadFile:
         raise ValueError(f"Unsupported file type: {ext}")
 
     setattr(file, 'file_type', FILE_TYPE_MAP[ext])
+    setattr(file, 'file_extension', ext)
+    setattr(file, 'file_name', file.filename)
     return file

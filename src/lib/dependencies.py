@@ -5,7 +5,11 @@ from fastapi import Header, HTTPException, Request
 from lib.database.mysql import MySQLClient
 from lib.database.redis import RedisClient
 from lib.database.s3_pool import S3Pool
+from lib.database.croma import CromaDBClient
 from lib.user import User
+from lib.llm import LLMClient
+from lib.embed import EmbeddingClient
+
 
 
 def get_mysql_client(request: Request) -> MySQLClient:
@@ -217,3 +221,111 @@ async def get_current_user( request: Request, authorization: str = Header(..., a
     if not await user.verify_session():
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
+
+def get_croma_client(request: Request) -> CromaDBClient:
+    """
+    The function `get_croma_client` retrieves the CromaDBClient from the request if it has been
+    initialized, otherwise raises an HTTPException.
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    Author - Liam Scott
+    Last update - 02/26/2025
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    @ param request (Request)  - The `request` parameter in the `get_croma_client` function is of type
+    `Request`, which is likely an object representing an HTTP request in a web application framework.
+    This parameter is used to access the application state where the `CromaDBClient` instance is stored.
+    
+    .-.-.-.
+    
+    
+    
+    @ returns The function `get_croma_client` returns the CromaDBClient instance stored in the
+    `request.app.state` if it exists and is of the correct type. If the client is not initialized or
+    there is an error with the initialization, it raises an HTTPException with a status code of 500 and
+    an appropriate error message.
+    
+    .-.-.-.
+    
+    
+    """
+    if "croma_client" not in request.app.state:
+        raise HTTPException(status_code=500, detail="CromaDB client not initialized")
+    if isinstance(request.app.state.croma_client, CromaDBClient):
+        return request.app.state.croma_client
+    raise HTTPException(status_code=500, detail="Error with CromaDB client initialization")
+
+def get_llm_client(request: Request) -> LLMClient:
+    """
+    The function `get_llm_client` retrieves the LLMClient object from the request's application state.
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    Author - Liam Scott
+    Last update - 02/26/2025
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    @ param request (Request)  - The `request` parameter in the `get_llm_client` function is of type
+    `Request`, which is likely an object representing an HTTP request in a web application framework. It
+    is used to access information about the incoming request such as headers, parameters, and body
+    content.
+    
+    .-.-.-.
+    
+    
+    
+    @ returns The function `get_llm_client` is returning the LLMClient object stored in the
+    `request.app.state.llm_client` if it is an instance of `LLMClient`. If the `llm_client` is not found
+    in the request's app state or if it is not an instance of `LLMClient`, the function raises an
+    HTTPException with a status code of 500 and
+    
+    .-.-.-.
+    
+    
+    """
+
+    if "llm_client" not in request.app.state:
+        raise HTTPException(status_code=500, detail="llm client not initialized")
+    if isinstance(request.app.state.llm_client, LLMClient):
+        return request.app.state.llm_client
+    raise HTTPException(status_code=500, detail="Error with llm client initialization")
+
+def get_embedding_client(request: Request) -> EmbeddingClient:
+    """
+    The function `get_embedding_client` retrieves an EmbeddingClient from the request's application
+    state, raising an exception if not found or if the client is not properly initialized.
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    Author - Liam Scott
+    Last update - 02/26/2025
+    
+    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+    
+    @ param request (Request)  - The `request` parameter in the `get_embedding_client` function is of
+    type `Request`, which is likely an object representing an HTTP request in a web application
+    framework. It is used to access information about the incoming request, such as headers, query
+    parameters, and request body.
+    
+    .-.-.-.
+    
+    
+    
+    @ returns the `EmbeddingClient` object stored in the `embedding_client` key of the
+    `request.app.state` dictionary. If the `embedding_client` key is not found in the
+    `request.app.state`, it raises an HTTPException with a status code of 500 and the detail message
+    "Embedding client not initialized". If the `embedding_client` is not an instance of `
+    
+    .-.-.-.
+    
+    
+    """
+
+    if "embedding_client" not in request.app.state:
+        raise HTTPException(status_code=500, detail="Embedding client not initialized")
+    if isinstance(request.app.state.embedding_client, EmbeddingClient):
+        return request.app.state.embedding_client
+    raise HTTPException(status_code=500, detail="Error with embedding client initialization")

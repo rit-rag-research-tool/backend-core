@@ -188,4 +188,60 @@ class S3Pool:
             file_content
         )
 
-        return file_name, result
+        return least_loaded_server, result
+
+    async def upload_file_server(self, bucket_name: str, file_name: str, file_content: bytes, server: str) -> bool:
+        """
+        The function `upload_file_server` asynchronously uploads a file to a specified server using an
+        S3 client.
+        
+        .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+        
+        Author - Liam Scott
+        Last update - 02/26/2025
+        
+        .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
+        
+        @ param bucket_name (str)  - The `bucket_name` parameter is a string that represents the name of
+        the bucket in the S3 storage service where you want to upload the file. It is used to specify
+        the destination bucket for storing the file.
+        
+        .-.-.-.
+        
+        @ param file_name (str)  - The `file_name` parameter in the `upload_file_server` function
+        represents the name of the file that you want to upload to the specified server. It is a string
+        that should contain the name of the file including its extension (e.g., "example.txt").
+        
+        .-.-.-.
+        
+        @ param file_content (bytes)  - The `file_content` parameter in the `upload_file_server`
+        function is expected to be of type `bytes`. This parameter should contain the content of the
+        file that you want to upload to the specified server. When calling this function, you should
+        pass the content of the file as a bytes object.
+        
+        .-.-.-.
+        
+        @ param server (str)  - The `server` parameter in the `upload_file_server` function represents
+        the server where the file will be uploaded. It is a string that specifies the server's address
+        or identifier where the file will be stored.
+        
+        .-.-.-.
+        
+        
+        
+        @ returns The `upload_file_server` function returns a boolean value indicating the success of
+        the file upload operation.
+        
+        .-.-.-.
+        
+        
+        """
+
+        result = await asyncio.to_thread(
+            self.s3_clients[server].upload_file,
+            bucket_name,
+            file_name,
+            file_content
+        )
+
+        return result

@@ -15,7 +15,7 @@ FILE_TYPE_MAP = {
     ".doc": "TXT",
     ".docx": "TXT",
     ".rtf": "TXT",
-    ".pdf": "TXT",    # we will most likely extract text from PDFs then embed them so we will need a new code for this but thats for later
+    ".pdf": "PDF",    # we will most likely extract text from PDFs then embed them so we will need a new code for this but thats for later
     ".wpd": "TXT",
     ".txt": "TXT",
     ".md": "TXT",

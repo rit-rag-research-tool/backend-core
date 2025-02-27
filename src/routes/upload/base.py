@@ -1,11 +1,9 @@
-from typing import Any, Dict
-
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
-
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile, Depends, Request
+from typing import Dict, Any
 from controllers import upload_file_service
 from lib import get_current_user
 from lib.user import User
-
+ 
 router = APIRouter()
 
 @router.post("/")

@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Type
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from lib import MySQLClient, RedisClient, S3Pool
+from lib import MySQLClient, RedisClient, S3Pool, CromaDBClient, GoogleLLMClient, VoyageAIEmbeddingClient
 from routes import router as base_router
 
 FILE_VERSION = "0.1.0"
@@ -90,7 +90,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.general_cache_client = general_cache_client
     app.state.file_cache_client = file_cache_client
     app.state.s3_pool = s3_pool
+    app.state.croma_client = CromaDBClient(dict(os.environ))
     app.state.env = dict(os.environ)
+    app.state.llm_client = GoogleLLMClient(os.environ["GOOGLE_LLM_API_KEY"], os.environ["GOOGLE_LLM_DEFAULT_MODEL"], bool(os.environ["GOOGLE_LLM_GROUNDING"]))
+    app.state.embeding_client = VoyageAIEmbeddingClient(os.environ["VOYAGEAI_API_KEY"], int(os.environ["EMBEDING_DIM"]))
 
     print("-" * 20)
     print("Routes:")
